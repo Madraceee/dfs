@@ -32,6 +32,10 @@ func TestStore(t *testing.T) {
 		t.Error(err)
 	}
 
+	if ok := s.Has(key); !ok {
+		t.Errorf("expected to have key %s", key)
+	}
+
 	r, err := s.Read(key)
 	if err != nil {
 		t.Error(err)
@@ -43,5 +47,23 @@ func TestStore(t *testing.T) {
 	}
 	if string(b) != string(data) {
 		t.Errorf("want %s have %s", data, b)
+	}
+}
+
+func TestStoreDeleteKey(t *testing.T) {
+	opts := StoreOpts{
+		PathTransformFunc: CASPathTransformFunc,
+	}
+
+	data := []byte("Some content")
+	s := NewStore(opts)
+	key := "momsspecials"
+
+	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+		t.Error(err)
+	}
+
+	if err := s.Delete(key); err != nil {
+		t.Error(err)
 	}
 }
