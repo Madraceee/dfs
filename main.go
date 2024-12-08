@@ -1,36 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/madraceee/dfs/p2p"
 )
 
-func OnPeer(p p2p.Peer) error {
-	p.Close()
-	fmt.Println("doing some logic NON-TCP login")
-	return nil
-}
-
 func main() {
-	opts := p2p.TCPTransportOpts{
+	tcpTransportOpts := p2p.TCPTransportOpts{
 		ListenAddr:    ":3000",
 		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       p2p.DefaultDecoder{},
-		OnPeer:        OnPeer,
+		// TODO onPeer
 	}
 
-	tr := p2p.NewTCPTransport(opts)
+	tcpTransport := p2p.NewTCPTransport(tcpTransportOpts)
+	fileServerOpts := FileServerOpts{
+		ListenAddr:        ":3000",
+		StorageRoot:       "3000_network",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tcpTransport,
+	}
 
-	go func() {
-		for {
-			msg := <-tr.Consume()
-			fmt.Printf("%v\n", msg)
-		}
-	}()
+	s := NewFileServer(fileServerOpts)
 
-	if err := tr.ListenAndAccept(); err != nil {
+	if err := s.Start(); err != nil {
 		log.Fatal(err)
 	}
 
