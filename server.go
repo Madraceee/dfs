@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/madraceee/dfs/p2p"
 )
@@ -12,10 +13,14 @@ type FileServerOpts struct {
 	StorageRoot       string
 	PathTransformFunc PathTransformFunc
 	Transport         p2p.Transport
+	BootstrapNodes    []string
 }
 
 type FileServer struct {
 	FileServerOpts
+
+	peerLock sync.Mutex
+	peers    map[string]p2p.Peer
 
 	store  *Store
 	quitch chan struct{}
@@ -29,6 +34,7 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 	return &FileServer{
 		store:          NewStore(storeOpts),
 		quitch:         make(chan struct{}),
+		peers:          make(map[string]p2p.Peer),
 		FileServerOpts: opts,
 	}
 }
@@ -53,11 +59,37 @@ func (s *FileServer) loop() {
 	}
 }
 
+func (s *FileServer) OnPeer(peer p2p.Peer) error {
+	s.peerLock.Lock()
+	defer s.peerLock.Unlock()
+
+	s.peers[peer.RemoteAddr().String()] = peer
+
+	log.Printf("connected with remote peer %s\n", peer.RemoteAddr())
+	return nil
+}
+
+func (s *FileServer) bootstrapNetwork() error {
+	for _, addr := range s.BootstrapNodes {
+		if len(addr) == 0 {
+			continue
+		}
+		go func(addr string) {
+			if err := s.Transport.Dial(addr); err != nil {
+				log.Println("dial error:", err)
+			}
+		}(addr)
+	}
+
+	return nil
+}
+
 func (s *FileServer) Start() error {
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		return err
 	}
 
+	s.bootstrapNetwork()
 	s.loop()
 
 	return nil
