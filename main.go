@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/madraceee/dfs/p2p"
 )
@@ -24,9 +25,14 @@ func main() {
 
 	s := NewFileServer(fileServerOpts)
 
+	go func() {
+		timer := time.NewTimer(4 * time.Second)
+		<-timer.C
+		s.Stop()
+	}()
+
 	if err := s.Start(); err != nil {
 		log.Fatal(err)
 	}
 
-	select {}
 }
