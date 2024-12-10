@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"log"
+	"time"
 	_ "time"
 
 	"github.com/madraceee/dfs/p2p"
@@ -38,5 +41,13 @@ func main() {
 		log.Fatal(s1.Start())
 	}()
 
-	s2.Start()
+	go func() {
+		s2.Start()
+	}()
+
+	time.Sleep(2 * time.Second)
+
+	s2.StoreData("test", io.Reader(bytes.NewBuffer([]byte("123"))))
+
+	time.Sleep(2 * time.Second)
 }
