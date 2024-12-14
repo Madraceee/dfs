@@ -6,11 +6,13 @@ import "net"
 type Peer interface {
 	net.Conn
 	Send([]byte) error
+	CloseStream()
 }
 
 // Transport handles communication between nodes
 // Can be TCP, UDP, WebSockets
 type Transport interface {
+	Addr() string
 	ListenAndAccept() error
 	Dial(string) error
 	Consume() <-chan RPC
