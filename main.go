@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bytes"
+	_ "bytes"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -47,7 +48,19 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	s2.StoreData("test", io.Reader(bytes.NewBuffer([]byte("123456"))))
+	// s2.StoreData("test", io.Reader(bytes.NewBuffer([]byte("123456"))))
+	//
+	// time.Sleep(5 * time.Second)
 
-	time.Sleep(5 * time.Second)
+	r, err := s2.Get("test")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(string(b))
 }
