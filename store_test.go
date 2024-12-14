@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -16,8 +17,10 @@ func TestStore(t *testing.T) {
 	key := "momsspecials"
 
 	reader := bytes.NewReader(data)
-	if err := s.writeStream(key, reader); err != nil {
+	if n, err := s.writeStream(key, reader); err != nil {
 		t.Error(err)
+	} else {
+		fmt.Println(n)
 	}
 
 	if ok := s.Has(key); !ok {

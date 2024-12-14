@@ -47,7 +47,7 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	s2.StoreData("test", io.Reader(bytes.NewBuffer([]byte("123"))))
+	s2.StoreData("test", io.Reader(bytes.NewBuffer([]byte("123456"))))
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 }
