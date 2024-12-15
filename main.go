@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os/exec"
 	"time"
 
 	"github.com/madraceee/dfs/p2p"
 )
 
-func makeServer(listenAddr, root string, nodes ...string) *FileServer {
+func makeServer(listenAddr, root string, encKey []byte, nodes ...string) *FileServer {
 	tcpTransportOpts := p2p.TCPTransportOpts{
 		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NOPHandshakeFunc,
@@ -20,7 +21,7 @@ func makeServer(listenAddr, root string, nodes ...string) *FileServer {
 
 	tcpTransport := p2p.NewTCPTransport(tcpTransportOpts)
 	fileServerOpts := FileServerOpts{
-		EncKey:            newEncryptionKey(),
+		EncKey:            encKey,
 		ListenAddr:        listenAddr,
 		StorageRoot:       root,
 		PathTransformFunc: CASPathTransformFunc,
@@ -35,34 +36,46 @@ func makeServer(listenAddr, root string, nodes ...string) *FileServer {
 }
 
 func main() {
-	s1 := makeServer(":3000", "3000_network", "")
-	s2 := makeServer(":4000", "4000_network", ":3000")
+	encKey := newEncryptionKey()
+	s1 := makeServer(":3000", "3000_network", encKey, "")
+	s2 := makeServer(":4000", "4000_network", encKey, ":3000")
+	s3 := makeServer(":5000", "5000_network", encKey, ":3000", ":4000")
 
 	go func() {
 		log.Fatal(s1.Start())
 	}()
 
 	go func() {
-		s2.Start()
+		log.Fatal(s2.Start())
+	}()
+
+	time.Sleep(5 * time.Second)
+	go func() {
+		s3.Start()
 	}()
 
 	time.Sleep(2 * time.Second)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 10; i++ {
 		data := bytes.NewReader([]byte("big data file"))
 		s2.StoreData(fmt.Sprintf("test-%d", i), io.Reader(data))
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	// r, err := s1.Get("test-1")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	//
-	// b, err := io.ReadAll(r)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	//
-	// fmt.Println(string(b))
-	// select {}
+	cmd := exec.Command("rm", "-rf", "./3000_network")
+	cmd.Run()
+
+	for i := 0; i < 10; i += 2 {
+		r, err := s1.Get(fmt.Sprintf("test-%d", i))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		b, err := io.ReadAll(r)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(string(b))
+	}
+	select {}
 }

@@ -99,7 +99,7 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 
 	msg := Message{
 		Payload: MessageGetFile{
-			Key: key,
+			Key: hashKey(key),
 		},
 	}
 
@@ -115,6 +115,7 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 		binary.Read(peer, binary.LittleEndian, &fileSize)
 		n, err := s.store.WriteDecrypt(s.EncKey, key, io.LimitReader(peer, fileSize))
 		if err != nil {
+			peer.CloseStream()
 			return nil, err
 		}
 
@@ -139,7 +140,7 @@ func (s *FileServer) StoreData(key string, r io.Reader) error {
 
 	msg := Message{
 		Payload: MessageStoreFile{
-			Key:  key,
+			Key:  hashKey(key),
 			Size: size + 16,
 		},
 	}
@@ -150,16 +151,18 @@ func (s *FileServer) StoreData(key string, r io.Reader) error {
 
 	time.Sleep(1 * time.Millisecond)
 
-	// TODO: use multiwriter
-	for _, peer := range s.peers {
-		peer.Send([]byte{p2p.IncomingStream})
-		n, err := copyEncrypt(s.EncKey, fileBuffer, peer)
-		if err != nil {
-			return err
-		}
+	peers := []io.Writer{}
 
-		log.Printf("[%s] received and written %v bytes to disk", s.Transport.Addr(), n)
+	for _, peer := range s.peers {
+		peers = append(peers, peer)
 	}
+	mw := io.MultiWriter(peers...)
+	mw.Write([]byte{p2p.IncomingStream})
+	n, err := copyEncrypt(s.EncKey, fileBuffer, mw)
+	if err != nil {
+		return err
+	}
+	log.Printf("[%s] received and written %v bytes to disk", s.Transport.Addr(), n)
 
 	return nil
 
@@ -267,7 +270,7 @@ func (s *FileServer) bootstrapNetwork() error {
 		}
 		go func(addr string) {
 			if err := s.Transport.Dial(addr); err != nil {
-				log.Println("dial error:", err)
+				log.Printf("[%s] dial error: %v", s.Transport.Addr(), err)
 			}
 		}(addr)
 	}
